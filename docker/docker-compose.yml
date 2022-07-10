@@ -1,0 +1,63 @@
+version: '3.9'
+
+networks:
+  wp-network:
+
+services:
+  mysql:
+    image: mysql:5.7
+    container_name: '${PROJECT_NAME}-mysql'
+    volumes:
+      - ./db/my.cnf:/etc/mysql/conf.d/my.cnf
+      # - ../www/_sql/${DB_NAME}.sql:/docker-entrypoint-initdb.d/${DB_NAME}.sql
+    environment:
+       MYSQL_ROOT_PASSWORD: root
+       MYSQL_DATABASE: ${DB_NAME}
+       MYSQL_USER: user
+       MYSQL_PASSWORD: password
+       TZ: Asia/Jakarta
+    ports:
+      - 3306:3306
+    networks:
+      - wp-network
+
+  phpmyadmin:
+    depends_on:
+      - mysql
+    container_name: '${PROJECT_NAME}-phpmyadmin'
+    image: phpmyadmin/phpmyadmin
+    environment:
+      PMA_ARBITRARY: 1
+      PMA_HOST: mysql
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - 8080:80
+    volumes:
+      - ./phpmyadmin/sessions:/sessions
+      - ./phpmyadmin/phpmyadmin-misc.ini:/usr/local/etc/php/conf.d/phpmyadmin-misc.ini
+    networks:
+      - wp-network
+
+  wordpress:
+    depends_on:
+      - mysql
+    build: ./wordpress
+    container_name: '${PROJECT_NAME}-wordpress'
+    image: wordpress:latest
+    ports:
+      - 80:80
+    environment:
+      WORDPRESS_DB_HOST: mysql:3306
+      WORDPRESS_DB_USER: user
+      WORDPRESS_DB_PASSWORD: password
+      WORDPRESS_DB_NAME: ${DB_NAME}
+      WORDPRESS_CONFIG_EXTRA: |
+        define( 'WP_HOME', 'http://localhost' );
+        define( 'WP_SITEURL', 'http://localhost' );
+    volumes:
+      - ../www:/var/www/html
+      - ./php/php.ini:/usr/local/etc/php/conf.d/php.ini
+    networks:
+      - wp-network
